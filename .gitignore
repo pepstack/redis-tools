@@ -51,8 +51,12 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-# ignore downloads
+# ignore items
 downloads/
 scripts/downloads/
 scripts/BUILD.SUCCESS
-scripts/conf.test*
+scripts/conf.*
+
+!scripts/conf.default
+!scripts/downloads/redis-7.4.0.tar.gz
+!scripts/downloads/hiredis-master.zip

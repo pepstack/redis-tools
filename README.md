@@ -1,3 +1,3 @@
 ## redis-tools
 
-please refer to README.md in scripts folder.
+Please refer to README.md in scripts folder.
