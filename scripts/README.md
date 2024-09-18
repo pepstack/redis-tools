@@ -130,8 +130,8 @@ redis 集群是指多个 redis-server 实例（服务进程）运行一台或多
 
 - 服务器针对 redis 性能优化配置脚本
 
-- 集群启用 ssl 证书的脚本
+- 集群启用 ssl 证书
 
-- hiredis 开发示例
+- hiredis 和 hiredis ssl 开发示例
 
-2024-09-18, maparare.top
+2024-09-19, maparare.top

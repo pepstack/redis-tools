@@ -15,3 +15,9 @@
 ### scripts
 
 包含了全部 redis 集群创建脚本。使用请参考 README.md。
+
+### sslcerts
+
+如何使用 openssl 创建证书。
+
+java web 服务器请使用 jkscerts.sh 自动化工具创建证书库和证书！

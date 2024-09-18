@@ -3,6 +3,8 @@
 
 Copyright (c) 2024-09-19, mapaware.top
 
+java web 服务器请使用 jkscerts.sh 自动化工具创建证书库和证书！
+
 参考：
 
 - 利用openssl创建一个简单的CA
@@ -169,6 +171,11 @@ CA一般指证书授权机构，比如VeriSign, Startssl。浏览器内嵌了这
 查看 acom.p12 的内容可以用命令:
   $ openssl pkcs12 -in acom.p12 -nodes
     Enter Import Password: 666666
+
+PKCS12 证书（包含密钥、证书和颁发该证书的 CA 证书） 转为 PEM 格式:
+
+  $ openssl pkcs12 -in acom.p12 -out acom_p12.pem -password pass:"666666" -nodes
+
 
 参考：https://stackoverflow.com/questions/40399690/enter-pem-pass-phrase-when-converting-pkcs12-certificate-into-pem
 

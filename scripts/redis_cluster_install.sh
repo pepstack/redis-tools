@@ -36,7 +36,7 @@
 _name_=$(basename "$0")
 _cdir_=$(cd "$(dirname "$0")" && pwd)
 _file_=""${_cdir}"/"${_name}""
-_ver_="0.0.1"
+_ver_="0.1.0"
 
 . $_cdir_/common.sh
 
