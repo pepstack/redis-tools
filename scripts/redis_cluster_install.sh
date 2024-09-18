@@ -385,7 +385,7 @@ function deploy() {
         fi
     done
 
-    cd "$redis_downloads_dir/hiredis-master" && make PREFIX="$redis_install_prefix" install
+    cd "$redis_downloads_dir/hiredis-master" && make USE_SSL=1 PREFIX="$redis_install_prefix" install
     cp "$build_success_dir/redis.conf" "$redis_install_prefix/redis.conf.default"
 
     echoinfo "hiredis install at: $redis_install_prefix"

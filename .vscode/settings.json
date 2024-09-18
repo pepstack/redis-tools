@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "async.h": "c",
+        "hiredis.h": "c",
+        "random": "c"
+    }
+}
