@@ -52,4 +52,7 @@ Mkfile.old
 dkms.conf
 
 # ignore downloads
-downloads
+downloads/
+scripts/downloads/
+scripts/BUILD.SUCCESS
+scripts/conf.test*
