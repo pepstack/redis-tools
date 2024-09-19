@@ -9,10 +9,8 @@ set -o nounset
 # Treat any error as exit
 set -o errexit
 
-echo "[redis://$REDIS_CLUSTER_ID] Creating cluster ..."
+nodes=$(xargs < "$REDIS_CLUSTER_HOME/CLUSTER_ALL_NODES")
 
-nodes=$(cat $REDIS_CLUSTER_HOME/CLUSTER_ALL_NODES | awk 'NR>1 {print p}{p=$0" \\"}; END {print $0}')
+echo "[redis://$REDIS_CLUSTER_ID] Creating cluster: {$nodes} ..."
 
 $REDIS_CLUSTER_HOME/bin/redis-cli --cluster-replicas $REDIS_CLUSTER_REPLICAS --cluster create $nodes
-
-echo "[redis://$REDIS_CLUSTER_ID] Cluster created success"
