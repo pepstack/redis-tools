@@ -21,14 +21,20 @@ redis_cluster_dir="/opt/redis_cluster"
 # redis 集群的唯一名称
 redis_cluster_id="test"
 
-# redis 集群密码
-redis_cluster_pass="test"
+# redis 集群密码保存在: REDIS-AUTH-PASS 文件中
+# redis_password="test"
 
 # TLS support as Redis built-in (=yes) or ad Redis module(=module)
+# 要求 openssl-devel
 build_tls_mode=yes
+
+# 启用 tls/ssl 支持(yes)
+tls_enabled=yes
+tls_cahome="$HOME/tlscerts"
+tls_cacert="ca.crt"
 
 # RDB 快照保存目录名称(只能是名称)
 rdb_dir_name="rdb"
 
-# 复制策略
-redis_cluster_replicas=2
+# 复制策略 (每个master有1个slave, 可取: 0,1,2)
+redis_cluster_replicas=1

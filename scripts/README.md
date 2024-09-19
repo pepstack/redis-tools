@@ -126,12 +126,22 @@ redis 集群是指多个 redis-server 实例（服务进程）运行一台或多
 
     **每次执行 config （$ redis_cluster_install.sh redis-cluster.settings config）都会重新自动生成配置目录 conf.$redis_cluster_id （从目录 conf.default 复制得到）。因此建议更改 conf.default 的内容而不是手动修改 conf.$redis_cluster_id。**
 
+### 配置集群使用 TLS/SSL 证书
+
+配置文件中设置 (tls_enabled=yes)，集群就启用了证书支持。redis_cluster_install.sh 会自动将 “scripts/tlscerts” 目录复制到 $HOME 下 （配置文件中 “tls_cahome=$HOME/tlscerts” 指向的证书目录）
+
+“tlscerts” 是 redis 自带的工具生成的测试证书，工具在：scripts/BUILD.SUCCESS/utils/gen-test-certs.sh，执行方法如下：
+
+    $ cd BUILD.SUCCESS
+    $ rm -rf tests/tls
+    $ ./gen-test-certs.sh
+
+然后将 tests/tls 复制为 scripts/tlscerts 目录下备用。集群所有节点必须使用同一个 tlscerts。然后部署到每一个服务器。其他与无证书一样。如果想通过证书连接集群，使用 tlsconnect_redis.sh。
+
 ### TODO
 
 - 服务器针对 redis 性能优化配置脚本
 
-- 集群启用 ssl 证书
-
 - hiredis 和 hiredis ssl 开发示例
 
-2024-09-19, maparare.top
+2024-09-20, maparare.top

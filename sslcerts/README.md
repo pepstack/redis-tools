@@ -143,15 +143,22 @@ CA一般指证书授权机构，比如VeriSign, Startssl。浏览器内嵌了这
 
 #### 2.1 创建一个证书请求
 
-假设 a.com 要建立 https 的网站，于是请求我们（CA 颁发机构）给他们网站签发一个服务端证书，首先要创建一个证书请求：
+假设 a.com 要建立 https 的网站，于是请求我们（CA 颁发机构）给他们网站签发一个证书，首先要创建一个证书请求：
 
     $ mkdir $CA_HOME/newcerts/a.com
     $ cd $CA_HOME/newcerts/a.com
     $ openssl req -newkey rsa:1024 -keyout acomkey.pem -keyform PEM -out acomreq.pem -outform PEM -subj "/O=a.com/OU=ou.a.com/CN=a.com"
    
-    执行过程中需要设置私钥的保护密码（Enter PEM pass phrase:?），设为密码： 888888。执行成功，acomkey.pem 即为 a.com 的密钥，而 acomreq.pem 即为证书请求。查看证书请求的内容：
+    执行过程中需要设置私钥的保护密码（Enter PEM pass phrase:?），设为密码： 888888。执行成功，acomkey.pem 即为私钥，而 acomreq.pem 即为证书请求。查看证书请求的内容：
     
     $ openssl req -in acomreq.pem -text -noout
+
+    使用 acomkey.pem 私钥需要指定密码（888888），很不方便，下面去除这个密码：
+
+    $ openssl rsa -in acomkey.pem -out acomkey_nopass.pem
+
+    生成的文件 acomkey_nopass.pem 就是不包含密码的私钥。
+
 
 #### 2.2 CA 为网站 a.com 签发证书
 
