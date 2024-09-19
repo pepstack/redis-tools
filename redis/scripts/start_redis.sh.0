@@ -1,0 +1,17 @@
+#!/bin/bash
+# redis cluster uri: [redis://host:port@cluster/]
+#
+echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] Starting {NODEID} ..."
+
+ports=({PORTS})
+
+for port in "${ports[@]}"
+do
+    echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] Starting {NODEID}:$port ..."
+
+    cd "$REDIS_CLUSTER_HOME/" && "./bin/redis-server" "./conf/redis-{NODEID}-$port.conf"
+
+    echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] {NODEID}:$port started"
+done
+
+echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] {NODEID} started"

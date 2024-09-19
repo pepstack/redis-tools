@@ -14,23 +14,26 @@ redis_tarball_md5sum="91fdc125557cdf5db2d744ffb133a111"
 # hiredis 源码包 md5 签名: hiredis-master.zip
 hiredis_zip_md5sum="99f983f3f3f740eae446d792bb677c44"
 
-######## install ########
+######## deploy ########
 # redis 集群安装所在的父目录(必须存在)
 redis_cluster_dir="/opt/redis_cluster"
 
-# redis 集群的唯一名称
-redis_cluster_id="test"
+# redis 集群的唯一名称(小写字母组成的无空格的单词)
+redis_cluster_id="mapaware"
 
-# redis 集群密码保存在: REDIS-AUTH-PASS 文件中
-# redis_password="test"
+# redis 集群密码保存文件名
+redis_authpass_file="REDIS-AUTH-PASSWORD"
 
 # TLS support as Redis built-in (=yes) or ad Redis module(=module)
-# 要求 openssl-devel
+# 要求安装 openssl-devel: 每个服务器必须安装兼容版本的 openssl, 否则可能证书验证失败!
+# 强烈建议每个服务器安装一致的 openssl, 并启用 SSL 模式全部重新编译 redis 软件!
 build_tls_mode=yes
 
 # 启用 tls/ssl 支持(yes)
-tls_enabled=yes
-tls_cahome="$HOME/tlscerts"
+tls_enabled=no
+
+# 证书存放的目录名
+tls_cacertdir="certs"
 tls_cacert="ca.crt"
 
 # RDB 快照保存目录名称(只能是名称)

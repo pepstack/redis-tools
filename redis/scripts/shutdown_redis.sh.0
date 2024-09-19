@@ -1,0 +1,24 @@
+#!/bin/bash
+# redis cluster uri: [redis://host:port@cluster/]
+#
+echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] Stopping {NODEID} ..."
+
+ports=({PORTS})
+
+# 使用 for 循环遍历数组
+for port in "${ports[@]}"
+do
+    nodepid=$(cat "$REDIS_CLUSTER_HOME/run/redis-{NODEID}-$port.pid")
+
+    "$REDIS_CLUSTER_HOME/bin/redis-cli" -h "{NODEHOST}" -p "$port" SHUTDOWN
+
+    while [ -x "/proc/$nodepid" ]
+    do
+        echo "[redis://{NODEHOST}:$port@$REDIS_CLUSTER_ID] Waiting for pid:$nodepid shutdown ..."
+        sleep 1
+    done
+
+    echo "[redis://{NODEHOST}:$port@$REDIS_CLUSTER_ID] pid:$nodepid shutdown"
+done
+
+echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] {NODEID} stopped."

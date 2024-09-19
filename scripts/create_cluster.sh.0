@@ -1,8 +1,0 @@
-#!/bin/bash
-# create cluster once after starting all redis-servers
-
-deploydir=$(cd "$(dirname "$0")" && pwd)
-
-redispass=$(cat "$deploydir/REDIS-AUTH-PASS")
-
-cd "$deploydir" && ./bin/redis-cli -a "$redispass" \

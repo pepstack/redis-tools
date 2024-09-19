@@ -1,5 +1,7 @@
 ## redis-tools
 
+2024-09-20
+
 有下面几个目录：
 
 ### examples
@@ -12,7 +14,7 @@
 
 包含了编译好的 hiredis 库和头文件。
 
-### scripts
+### redis
 
 包含了全部 redis 集群创建脚本。使用请参考 README.md。
 

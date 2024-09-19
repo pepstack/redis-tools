@@ -1,0 +1,14 @@
+# /etc/profile.d/redis-cluster-env.sh
+#
+# System wide environment for redis-cli program.
+# It's NOT a good idea to change this file unless you know what you are doing !
+
+export REDIS_CLUSTER_ID="{CLUSTERID}"
+
+export REDIS_CLUSTER_HOME="{CLUSTERHOME}"
+
+export REDIS_CA_HOME="$REDIS_CLUSTER_HOME/certs"
+
+export REDIS_CLUSTER_REPLICAS={CLUSTERREPLICAS}
+
+export REDISCLI_AUTH=$(cat "$REDIS_CLUSTER_HOME/REDIS-AUTH-PASSWORD")

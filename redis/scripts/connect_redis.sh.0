@@ -1,0 +1,17 @@
+#!/bin/bash
+# redis cluster uri: [redis://host:port@cluster/]
+
+# Treat unset variables as an error
+set -o nounset
+
+# Treat any error as exit
+set -o errexit
+
+source "/etc/profile.d/redis-cluster-env.sh"
+
+echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] Client TCP connecting to: {NODEID}:{PORT} ..."
+
+#!/bin/bash
+"$REDIS_CLUSTER_HOME/bin/redis-cli" -c -h {NODEHOST} -p {PORT}
+
+exit 0

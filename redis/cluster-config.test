@@ -1,0 +1,43 @@
+######## download ########
+# redis 源码下载链接
+redis_wget_url="https://download.redis.io/releases/redis-7.4.0.tar.gz"
+
+# hiredis 源码下载链接
+hiredis_wget_url="https://github.com/redis/hiredis/archive/refs/heads/master.zip"
+
+# 下载超时秒
+redis_wget_timeout=180
+
+# redis 源码包 md5 签名
+redis_tarball_md5sum="91fdc125557cdf5db2d744ffb133a111"
+
+# hiredis 源码包 md5 签名: hiredis-master.zip
+hiredis_zip_md5sum="99f983f3f3f740eae446d792bb677c44"
+
+######## deploy ########
+# redis 集群安装所在的父目录(必须存在)
+redis_cluster_dir="/opt/redis_cluster"
+
+# redis 集群的唯一名称(小写字母组成的无空格的单词)
+redis_cluster_id="test"
+
+# redis 集群密码保存文件名
+redis_authpass_file="REDIS-AUTH-PASSWORD"
+
+# TLS support as Redis built-in (=yes) or ad Redis module(=module)
+# 要求安装 openssl-devel: 每个服务器必须安装兼容版本的 openssl, 否则可能证书验证失败!
+# 强烈建议每个服务器安装一致的 openssl, 并启用 SSL 模式全部重新编译 redis 软件!
+build_tls_mode=yes
+
+# 启用 tls/ssl 支持(yes)
+tls_enabled=yes
+
+# 证书存放的目录名
+tls_cacertdir="certs"
+tls_cacert="ca.crt"
+
+# RDB 快照保存目录名称(只能是名称)
+rdb_dir_name="rdb"
+
+# 复制策略 (每个master有1个slave, 可取: 0,1,2)
+redis_cluster_replicas=1

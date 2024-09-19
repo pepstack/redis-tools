@@ -1,23 +1,28 @@
 #!/bin/bash
 #
-# @file: redis_cluster_install.sh
-#   redis 集群部署工具
+# redis_cluster.sh
+#   redis 集群配置和部署工具
+#
 # tls: https://zhuanlan.zhihu.com/p/637542332
 #
 # Usage:
-#  redis_cluster_tool.sh /path/to/redis-cluster.settings ACTION
-#  ACTION:
+#   redis_cluster.sh ACTION
+#
+#   ACTION:
 #     config     生成全部节点配置文件
 #     build      编译 redis 源码
 #     deploy     在当前节点上部署 redis 集群
 #     clean      清理所有中间文件
+#     ALL        相当于 config build deploy
+#
+# Examples:
+#   $ sudo redis_cluster.sh config
+#   $ sudo redis_cluster.sh config build deply
+#   $ sudo redis_cluster.sh ALL
 #
 # @author: 350137278@qq.com
-#
 # @create: 2024-09-14
-#
 # @update: 2024-09-20
-#
 ########################################################################
 
 ########################################
@@ -36,8 +41,8 @@
 ########################################
 _name_=$(basename "$0")
 _cdir_=$(cd "$(dirname "$0")" && pwd)
-_file_=""${_cdir}"/"${_name}""
-_ver_="0.1.0"
+_file_=""${_cdir_}"/"${_name_}""
+_ver_="0.1.1"
 
 . $_cdir_/common.sh
 
@@ -47,13 +52,16 @@ set -o nounset
 # Treat any error as exit
 set -o errexit
 
+# 默认的配置文件
+redis_config_file=$(readlink -f "cluster-config")
+
 # 动作命令
 has_config=""
 has_build=""
 has_deploy=""
 has_clean=""
 
-actions=($(echo "$*" | awk -F[,] '{ for(i=1; i<=NF; i++) print $i; }'))
+actions=($(echo "$*" | awk -F[,] '{ for(i=0; i<=NF; i++) print $i; }'))
 
 if [[ $(array_find actions "ALL") != -1 ]]; then
     has_config="y";
@@ -72,9 +80,8 @@ echoinfo "当前登录为：$loguser"
 chk_root
 
 # 配置文件
-redis_config_file="$1"
-config_path=$(cd "$(dirname "$1")" && pwd)
-config_file=$(basename "$1")
+config_path=$(cd "$(dirname "$redis_config_file")" && pwd)
+config_file=$(basename "$redis_config_file")
 
 config_path_file="$config_path/$config_file"
 echoinfo "cluster config: $config_path_file"
@@ -90,19 +97,20 @@ if [[ "$redis_cluster_id" = "default" ]] || [[ "$redis_cluster_id" = "redis" ]];
     exit -1
 fi
 
-# redis 密码
-redis_password=$(cat "$_cdir_/REDIS-AUTH-PASS")
+# redis auth 密码
+redis_auth_pass=$(cat "$_cdir_/$redis_authpass_file")
 
-# 集群安装目录
-redis_install_prefix="$redis_cluster_dir/$redis_cluster_id"
-cluster_home_dir=$(echo "$redis_install_prefix" | sed 's/\//\\\//g')
+# 集群安装目录: /opt/redis_cluster/test
+redis_cluster_home="$redis_cluster_dir/$redis_cluster_id"
+RedisClusterHome=$(echo "$redis_cluster_home" | sed 's/\//\\\//g')
 
 # redis-7.4.0.tar.gz
 redis_tarball_name=$(basename $redis_wget_url)
 
-# 包下载目录
+# 源配置
+#
+scripts_dir="$_cdir_/scripts"
 redis_downloads_dir="$_cdir_/downloads"
-
 build_success_dir="$_cdir_/BUILD.SUCCESS"
 config_success_dir="$config_path/conf.$redis_cluster_id"
 
@@ -121,16 +129,21 @@ fi
 # 源码路径
 redis_srcdir="$redis_downloads_dir/$redis_name""-""$redis_verno/src"
 
+# CA 证书路径
+tls_cacert_dir="$redis_cluster_dir/$redis_cluster_id/$tls_cacertdir"
+
 # TLS/SSL 配置
-tlscacertdir=$(echo "$tls_cahome" | sed 's/\//\\\//g')
+echoinfo "cluster certs dir: $tls_cacert_dir"
+TlsCacertDir=$(echo "$tls_cacert_dir" | sed 's/\//\\\//g')
 
 if [ "$tls_enabled" = "yes" ]; then
-    tslstatus="tls enabled"
-    TLSTAG=""
+    TlsStatus="TLS enabled"
+    tls_enabled=1
+    HashTag=""
 else
-    tslstatus="tls disabled"
-    tls_enabled=""
-    TLSTAG="#! "
+    TlsStatus="TLS disabled"
+    tls_enabled=0
+    HashTag="#!"
 fi
 
 ################################################################
@@ -141,21 +154,20 @@ function download_redis() {
 
     ret=$(file_cksum "$redis_pkg_file" "$redis_tarball_md5sum")
     if [ "$ret" = "0" ]; then
-        echoinfo "tarball file exists: $redis_pkg_file"
+        echowarn "($FUNCNAME) tarball exists: $redis_pkg_file"
     elif [ "$ret" = "1" ]; then
-        echoerror "file md5sum ($redis_tarball_md5sum) failed: $redis_pkg_file"
+        echoerror "($FUNCNAME) md5sum check failed: $redis_pkg_file"
         exit -1
     else
         # 检查文件是否正确
-        echowarn "tarball file not exist: $redis_pkg_file"
-        echoinfo "  download: $redis_wget_url => $redis_pkg_file"
+        echoinfo "($FUNCNAME) $redis_wget_url => $redis_pkg_file"
         wget -T "$redis_wget_timeout" -P "$redis_downloads_dir" "$redis_wget_url"
     fi
 
     # 再次检查文件是否正确
     ret=$(file_cksum "$redis_pkg_file" "$redis_tarball_md5sum")
     if [ "$ret" != "0" ]; then
-        echoerror "file md5sum ($redis_tarball_md5sum) failed: $redis_pkg_file"
+        echoerror "($FUNCNAME) md5sum failed: $redis_pkg_file"
         exit -1
     fi
 }
@@ -167,21 +179,20 @@ function download_hiredis() {
 
     ret=$(file_cksum "$hiredis_zip_file" "$hiredis_zip_md5sum")
     if [ "$ret" = "0" ]; then
-        echoinfo "zip file exists: $hiredis_zip_file"
+        echowarn "($FUNCNAME) zip exists: $hiredis_zip_file"
     elif [ "$ret" = "1" ]; then
-        echoerror "file md5sum (hiredis-master.zip) failed: $hiredis_zip_file"
+        echoerror "($FUNCNAME) md5sum check failed: $hiredis_zip_file"
         exit -1
     else
         # 检查文件是否正确
-        echowarn "zip file not exist: $hiredis_zip_file"
-        echoinfo "  download: $hiredis_wget_url => $hiredis_zip_file"
+        echoinfo "($FUNCNAME) $hiredis_wget_url => $hiredis_zip_file"
         wget -T "$redis_wget_timeout" -P "$redis_downloads_dir" -O "$redis_downloads_dir/hiredis-master.zip" "$hiredis_wget_url"
     fi
 
     # 再次检查文件是否正确
     ret=$(file_cksum "$hiredis_zip_file" "$hiredis_zip_md5sum")
     if [ "$ret" != "0" ]; then
-        echoerror "file md5sum (hiredis-master.zip) failed: $hiredis_zip_file"
+        echoerror "($FUNCNAME) md5sum check failed: $hiredis_zip_file"
         exit -1
     fi
 }
@@ -200,7 +211,7 @@ function build() {
     fi
 
     # 编译源码
-    echoinfo "build redis (BUILD_TLS=$build_tls_mode): $redis_srcdir"
+    echoinfo "($FUNCNAME) BUILD_TLS=$build_tls_mode: $redis_srcdir"
 
     if [ ! -L "$build_success_dir" ] || [ ! -e "$build_success_dir" ]; then
         # 软链接无效
@@ -228,21 +239,20 @@ function config() {
     nodes_conf_dir="$config_success_dir.$daydir"
 
     # 节点配置 ini 文件
-    nodes_ini_file="$nodes_conf_dir/cluster_nodes.ini"
+    nodes_ini_file="$nodes_conf_dir/cluster-nodes.ini"
 
      # 创建集群配置目录
-    echoinfo "create cluster config: $nodes_conf_dir"
-    echoinfo "cluster nodes ini: $nodes_ini_file"
+    echoinfo "($FUNCNAME) cluster conf: $nodes_conf_dir"
+    echoinfo "($FUNCNAME) cluster nodes: $nodes_ini_file"
 
     rm -rf "$config_success_dir"
     rm -rf "$nodes_conf_dir"
 
     cp -r "$_cdir_/conf.default" "$nodes_conf_dir"
 
-    # 生成 redis 集群初始创建脚本: 包含集群全部节点, 在任意节点执行一次即可!
-    > "$nodes_conf_dir/CLUSTER_NODES.LIST"
+    # 生成 redis 集群初始创建脚本: 包含集群全部节点
+    > "$nodes_conf_dir/CLUSTER_ALL_NODES"
 
-    ################ 为每个节点的每个实例生成配置文件 ################
     # 根据节点配置文件模板动态对每个服务器生成实例的配置文件:
     #  每个服务器节点运行多个 redis-server 实例;
     #  每个 redis-server 实例使用专有的配置文件 redis-NODEID-PORT.conf 启动
@@ -255,13 +265,13 @@ function config() {
         nodeid="${nodeslist[n]}"
 
         # 节点配置文件存放目录
-        node_conf_dir="$nodes_conf_dir/$nodeid"
-        mkdir -p "$node_conf_dir"
+        nodeconfdir="$nodes_conf_dir/$nodeid"
+        mkdir -p "$nodeconfdir"
 
         # 实例配置文件: node1-6377.conf node1-6378.conf node1-6379.conf
         host=$(read_cfg "$nodes_ini_file" "$nodeid" "host")
     
-        echoinfo "[$nodeid] create confs for host ($tslstatus): $host"
+        echoinfo "($FUNCNAME) [$nodeid] host $TlsStatus: $host"
 
         # 节点配置文件模板: 用于生成实际的实例配置文件
         node_conf0_file="$nodes_conf_dir""/"$(read_cfg "$nodes_ini_file" "$nodeid" "conf")
@@ -278,66 +288,92 @@ function config() {
 
         numports=${#portslist[@]}
         if [ "$numports" != "${#tlsportslist[@]}" ]; then
-            echoerror 'bad config: tlsports="'"$tlsports"'"'
+            echoerror "($FUNCNAME) ports differs with tls ports"
             exit -1
         fi
 
         tlscertfile=$(read_cfg "$nodes_ini_file" "$nodeid" "tlscertfile")
         tlskeyfile=$(read_cfg "$nodes_ini_file" "$nodeid" "tlskeyfile")
+        tlsdhfile=$(read_cfg "$nodes_ini_file" "$nodeid" "tlsdhfile")
 
-        tlscertfile=$(echo "$tlscertfile" | sed 's/'"\$""tls_cahome"'/'"$tlscacertdir"'/g')
-        tlskeyfile=$(echo "$tlskeyfile" | sed 's/'"\$""tls_cahome"'/'"$tlscacertdir"'/g')
+        tlscertfile=$(echo "$tlscertfile" | sed 's/'"\$""tls_cahome"'/'"$TlsCacertDir"'/g')
+        tlskeyfile=$(echo "$tlskeyfile" | sed 's/'"\$""tls_cahome"'/'"$TlsCacertDir"'/g')
+        tlsdhfile=$(echo "$tlsdhfile" | sed 's/'"\$""tls_cahome"'/'"$TlsCacertDir"'/g')
 
-        tlscertfile=$(echo "$tlscertfile" | sed 's/\//\\\//g')
-        tlskeyfile=$(echo "$tlskeyfile" | sed 's/\//\\\//g')
-
-        # 节点启动脚本: 启动节点全并服务实例
-        echo "#!/bin/bash" > "$node_conf_dir/start_redis.sh"
-        echo "cd $redis_install_prefix" >> "$node_conf_dir/start_redis.sh"
-
-        # 节点关闭脚本: 保存并关闭节点全部服务实例
-        cp "$_cdir_/shutdown_redis.sh.0" "$node_conf_dir/shutdown_redis.sh"
+        TlsCertFile=$(echo "$tlscertfile" | sed 's/\//\\\//g')
+        TlsKeyFile=$(echo "$tlskeyfile" | sed 's/\//\\\//g')
+        TlsDhFile=$(echo "$tlsdhfile" | sed 's/\//\\\//g')
 
         for (( p=0; p<${numports}; p++ ));
         do
-            port="${portslist[p]}"
-            tlsport="${tlsportslist[p]}"
+            port="${portslist[p]}"; tlsport="${tlsportslist[p]}"
 
-            node_conf_file="$node_conf_dir/redis-$nodeid-$port.conf"
+            node_conf_file="$nodeconfdir/redis-$nodeid-$port.conf"
 
-            echo "$host:$port" >> "$nodes_conf_dir/CLUSTER_NODES.LIST"
+            echo "$host:$port" >> "$nodes_conf_dir/CLUSTER_ALL_NODES"
+            echo "$host:$tlsport" >> "$nodes_conf_dir/CLUSTER_ALL_NODES_TLS"
 
-            echoinfo "create node conf: $node_conf_file"
+            echoinfo "($FUNCNAME) create conf: $node_conf_file"
 
             cat "$node_conf0_file" | \
-                    sed 's/'"{"CLUSTER_HOME_DIR"}"'/'"$cluster_home_dir"'/g' | \
+                    sed 's/'"{"CLUSTER_HOME_DIR"}"'/'"$RedisClusterHome"'/g' | \
                     sed 's/'"{"CLUSTERID"}"'/'"$redis_cluster_id"'/g' | \
                     sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
                     sed 's/'"{"RDB_DIR"}"'/'"$rdb_dir_name"'/g' | \
                     sed 's/'"{"HOST"}"'/'"$host"'/g' | \
                     sed 's/'"{"PORT"}"'/'"$port"'/g' | \
                     sed 's/'"{"ADDRS"}"'/'"$addrstr"'/g' | \
-                    sed 's/'"{"TLS_ENABLED"}"'/'"$TLSTAG"'/g' | \
+                    sed 's/'"{"TLS_HASHTAG"}"'/'"$HashTag"'/g' | \
                     sed 's/'"{"TLS_PORT"}"'/'"$tlsport"'/g' | \
-                    sed 's/'"{"TLS_CERTFILE"}"'/'"$tlscertfile"'/g' | \
-                    sed 's/'"{"TLS_KEYFILE"}"'/'"$tlskeyfile"'/g' | \
+                    sed 's/'"{"TLS_CERTFILE"}"'/'"$TlsCertFile"'/g' | \
+                    sed 's/'"{"TLS_KEYFILE"}"'/'"$TlsKeyFile"'/g' | \
+                    sed 's/'"{"TLS_DHFILE"}"'/'"$TlsDhFile"'/g' | \
                     sed 's/'"{"TLS_CACERT"}"'/'"$tls_cacert"'/g' | \
-                    sed 's/'"{"TLS_CACERTDIR"}"'/'"$tlscacertdir"'/g' | \
-                    sed 's/'"{"PASSWORD"}"'/'"$redis_password"'/g' \
+                    sed 's/'"{"TLS_CACERTDIR"}"'/'"$TlsCacertDir"'/g' | \
+                    sed 's/'"{"PASSWORD"}"'/'"$redis_auth_pass"'/g' \
                 > "$node_conf_file"
-
-            echo "./bin/redis-server ./conf/$(basename $node_conf_file)" >> "$node_conf_dir/start_redis.sh"
-
-            echo "./bin/redis-cli -a "'"'\$redispass'"'" -h $host -p $port SHUTDOWN" >> "$node_conf_dir/shutdown_redis.sh"
         done
+
+        # 节点启动脚本: 启动节点的全部服务实例
+        cat "$scripts_dir/start_redis.sh.0" | \
+                sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
+                sed 's/'"{"NODEHOST"}"'/'"$host"'/g' | \
+                sed 's/'"{"PORTS"}"'/'"$ports"'/g' \
+            > "$nodeconfdir/start_redis.sh"
+
+        # 节点关闭脚本: 保存并关闭节点全部服务实例
+        cat "$scripts_dir/shutdown_redis.sh.0" | \
+                sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
+                sed 's/'"{"NODEHOST"}"'/'"$host"'/g' | \
+                sed 's/'"{"PORTS"}"'/'"$ports"'/g' \
+            > "$nodeconfdir/shutdown_redis.sh"
+
+        # TCP 连接集群脚本
+        cat "$scripts_dir/connect_redis.sh.0" | \
+                sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
+                sed 's/'"{"NODEHOST"}"'/'"$host"'/g' | \
+                sed 's/'"{"PORT"}"'/'"${portslist[0]}"'/g' \
+            > "$nodeconfdir/connect_redis.sh"
+
+        # TLS 连接集群脚本
+        cat "$scripts_dir/tlsconnect_redis.sh.0" | \
+                sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
+                sed 's/'"{"NODEHOST"}"'/'"$host"'/g' | \
+                sed 's/'"{"TLS_PORT"}"'/'"${tlsportslist[0]}"'/g' | \
+                sed 's/'"{"TLS_CERTFILE"}"'/'"$TlsCertFile"'/g' | \
+                sed 's/'"{"TLS_KEYFILE"}"'/'"$TlsKeyFile"'/g' | \
+                sed 's/'"{"TLS_CACERT"}"'/'"$tls_cacert"'/g' \
+            > "$nodeconfdir/tlsconnect_redis.sh"
     done
 
+    cat "$scripts_dir/redis-cluster-env.sh.0" | \
+        sed 's/'"{"CLUSTERID"}"'/'"$redis_cluster_id"'/g' | \
+        sed 's/'"{"CLUSTERHOME"}"'/'"$RedisClusterHome"'/g' | \
+        sed 's/'"{"CLUSTERREPLICAS"}"'/'"$redis_cluster_replicas"'/g' \
+    > "$nodes_conf_dir/redis-cluster-env.sh"
+
     # 生成 redis 集群初始创建脚本
-    cp "$_cdir_/create_cluster.sh.0" "$nodes_conf_dir/create_cluster.sh"
-    echo "    --cluster-replicas $redis_cluster_replicas \\" >> "$nodes_conf_dir/create_cluster.sh"
-    echo "    --cluster create \\" >> "$nodes_conf_dir/create_cluster.sh"
-    cat "$nodes_conf_dir/CLUSTER_NODES.LIST" | awk '{ print "      "$0" \\" }' >> "$nodes_conf_dir/create_cluster.sh"
-    echo ";" >> "$nodes_conf_dir/create_cluster.sh"
+    cat "$scripts_dir/create_cluster.sh.0" > "$nodes_conf_dir/create_cluster.sh"
 
     # 创建成功连接
     ln -s "$nodes_conf_dir" "$config_success_dir"
@@ -346,27 +382,25 @@ function config() {
 
 function deploy() {
     if [ ! -e "$build_success_dir" ]; then
-        echoerror "deploy depends on a success build: $build_success_dir"
+        echoerror "($FUNCNAME) deploy depends on a success build: $build_success_dir"
         echo " you might try the below command:"
-        echo "    $ sudo $_cdir/$_file_ ${actions[0]} build deploy"
+        echo "    $ sudo $_file_ ${actions[0]} build deploy"
         exit -1
     fi
 
     # 部署 redis 集群软件
-    echoinfo "deploy redis cluster at: $redis_install_prefix"
+    echoinfo "($FUNCNAME) redis cluster: $redis_cluster_home"
 
-    sleep 2
+    cd "$build_success_dir/src" && make install PREFIX="$redis_cluster_home"
 
-    cd "$build_success_dir/src" && make install PREFIX="$redis_install_prefix"
-
-    mkdir -p "$redis_install_prefix/$rdb_dir_name"
-    mkdir -p "$redis_install_prefix/conf"
-    mkdir -p "$redis_install_prefix/log"
-    mkdir -p "$redis_install_prefix/run"
-    mkdir -p "$redis_install_prefix/module"
+    mkdir -p "$redis_cluster_home/$rdb_dir_name"
+    mkdir -p "$redis_cluster_home/conf"
+    mkdir -p "$redis_cluster_home/log"
+    mkdir -p "$redis_cluster_home/run"
+    mkdir -p "$redis_cluster_home/module"
 
     # 节点配置 ini 文件
-    nodes_ini_file="$config_success_dir/cluster_nodes.ini"
+    nodes_ini_file="$config_success_dir/cluster-nodes.ini"
 
     ################ 为每个节点的每个实例生成配置文件 ################
     # 根据节点配置文件模板动态对每个服务器生成实例的配置文件:
@@ -381,7 +415,7 @@ function deploy() {
         nodeid="${nodeslist[n]}"
 
         # 节点配置文件存放目录
-        node_conf_dir="$config_success_dir/$nodeid"
+        nodeconfdir="$config_success_dir/$nodeid"
 
         # 实例配置文件: node1-6377.conf node1-6378.conf node1-6379.conf
         host=$(read_cfg "$nodes_ini_file" "$nodeid" "host")
@@ -397,74 +431,80 @@ function deploy() {
         tlsportslist=($(echo "$tlsports" | awk -F[,] '{ for(i=1; i<=NF; i++) print $i; }'))
         numports=${#portslist[@]}
         if [ "$numports" != "${#tlsportslist[@]}" ]; then
-            echoerror 'bad config: tlsports="'"$tlsports"'"'
+            echoerror "($FUNCNAME) bad config: tlsports=\"$tlsports\""
             exit -1
         fi
 
         tlscertfile=$(read_cfg "$nodes_ini_file" "$nodeid" "tlscertfile")
         tlskeyfile=$(read_cfg "$nodes_ini_file" "$nodeid" "tlskeyfile")
-        tlscertfile=$(echo "$tlscertfile" | sed 's/'"\$""tls_cahome"'/'"$tlscacertdir"'/g')
-        tlskeyfile=$(echo "$tlskeyfile" | sed 's/'"\$""tls_cahome"'/'"$tlscacertdir"'/g')
+        tlscertfile=$(echo "$tlscertfile" | sed 's/'"\$""tls_cahome"'/'"$TlsCacertDir"'/g')
+        tlskeyfile=$(echo "$tlskeyfile" | sed 's/'"\$""tls_cahome"'/'"$TlsCacertDir"'/g')
 
         for (( p=0; p<${numports}; p++ ));
         do
             port="${portslist[p]}"
             tlsport="${tlsportslist[p]}"
 
-            node_conf_file="$node_conf_dir/redis-$nodeid-$port.conf"
+            node_conf_file="$nodeconfdir/redis-$nodeid-$port.conf"
 
             # 部署实例配置文件
             if [ "$(hostname)" = "$host" ]; then
                 # 仅在本机节点部署
-                cp "$node_conf_file" "$redis_install_prefix/conf/"
-                echoinfo "deploy node conf: $redis_install_prefix/conf/$(basename $node_conf_file)"
+                cp "$node_conf_file" "$redis_cluster_home/conf/"
+                echoinfo "($FUNCNAME) node conf: $redis_cluster_home/conf/$(basename $node_conf_file)"
             fi
         done
 
         # 部署集群初始创建脚本
         if [ "$(hostname)" = "$host" ]; then
             # 仅在本机节点部署
-            cp "$node_conf_dir/start_redis.sh" "$redis_install_prefix/"
-            cp "$node_conf_dir/shutdown_redis.sh" "$redis_install_prefix/"
-            cp "$config_success_dir/create_cluster.sh" "$redis_install_prefix/"
+            cp "$nodeconfdir/start_redis.sh" "$redis_cluster_home/"
+            cp "$nodeconfdir/shutdown_redis.sh" "$redis_cluster_home/"
+            cp "$nodeconfdir/connect_redis.sh" "$redis_cluster_home/"
+            cp "$nodeconfdir/tlsconnect_redis.sh" "$redis_cluster_home/"
+            cp "$config_success_dir/create_cluster.sh" "$redis_cluster_home/"
 
-            chmod +x "$redis_install_prefix/start_redis.sh"
-            chmod +x "$redis_install_prefix/shutdown_redis.sh"
-            chmod +x "$redis_install_prefix/create_cluster.sh"
-
-            echo "#!/bin/bash" > "$redis_install_prefix/connect_redis.sh"
-            echo "$redis_install_prefix/bin/redis-cli -c -h $host -p ${portslist[0]}" >> "$redis_install_prefix/connect_redis.sh"
-            chmod +x "$redis_install_prefix/connect_redis.sh"
-
-            echo "#!/bin/bash" > "$redis_install_prefix/tlsconnect_redis.sh"
-            echo "$redis_install_prefix/bin/redis-cli -c -h $host -p ${tlsportslist[0]} --tls --cacert $tls_cahome/$tls_cacert --cert $tlscertfile --key $tlskeyfile" >> "$redis_install_prefix/tlsconnect_redis.sh"
-            chmod +x "$redis_install_prefix/tlsconnect_redis.sh"
+            chmod +x "$redis_cluster_home/start_redis.sh"
+            chmod +x "$redis_cluster_home/shutdown_redis.sh"
+            chmod +x "$redis_cluster_home/create_cluster.sh"
+            chmod +x "$redis_cluster_home/connect_redis.sh"
+            chmod +x "$redis_cluster_home/tlsconnect_redis.sh"
         fi
     done
 
-    cd "$redis_downloads_dir/hiredis-master" && make USE_SSL=1 PREFIX="$redis_install_prefix" install
-    cp "$build_success_dir/redis.conf" "$redis_install_prefix/redis.conf.default"
-    cp -r "$_cdir_/tlscerts" "$tls_cahome/"
+    cd "$redis_downloads_dir/hiredis-master" && make USE_SSL=1 PREFIX="$redis_cluster_home" install
+    cp "$build_success_dir/redis.conf" "$redis_cluster_home/redis.conf.default"
 
-    cp "$_cdir_/REDIS-AUTH-PASS" "$redis_install_prefix/"
+    rm -rf "$tls_cacert_dir"
+    cp -r "$nodes_conf_dir/certs" "$tls_cacert_dir"
 
-    echoinfo "hiredis install at: $redis_install_prefix"
-    echoinfo "redis cluster deploy success: $redis_install_prefix"
+    cp "$_cdir_/REDIS-AUTH-PASSWORD" "$redis_cluster_home/"
+
+    echoinfo "($FUNCNAME) system wide environment: /etc/profile.d/redis-cluster-env.sh"
+    cp "$nodes_conf_dir/redis-cluster-env.sh" "$redis_cluster_home/"
+    cp "$redis_cluster_home/redis-cluster-env.sh" "/etc/profile.d/"
+    . "/etc/profile.d/redis-cluster-env.sh"
+
+    cp "$nodes_conf_dir/CLUSTER_ALL_NODES" "$redis_cluster_home/"
+    cp "$nodes_conf_dir/CLUSTER_ALL_NODES_TLS" "$redis_cluster_home/"
+
+    echoinfo "($FUNCNAME) hiredis install at: $redis_cluster_home"
+    echoinfo "($FUNCNAME) redis cluster deploy success: $redis_cluster_home"
 }
 
 
 function clean() {
-    echowarn "remove redis at: $(dirname $redis_srcdir)"
+    echowarn "($FUNCNAME) remove redis at: $(dirname $redis_srcdir)"
     rm -rf "$build_success_dir"
     rm -rf "$redis_downloads_dir/$(dirname $redis_srcdir)"
 
-    echowarn "remove hiredis at: $redis_downloads_dir/hiredis-master"
+    echowarn "($FUNCNAME) remove hiredis at: $redis_downloads_dir/hiredis-master"
     rm -rf "$redis_downloads_dir/hiredis-master"
 
-    echowarn "remove redis conf at: $(dirname $redis_srcdir)"
+    echowarn "($FUNCNAME) remove redis conf at: $(dirname $redis_srcdir)"
     rm -rf "$config_success_dir"
 
-    echoinfo "redis clean all success"
+    echoinfo "($FUNCNAME) success"
 }
 
 ################################################################
@@ -477,5 +517,10 @@ if [ $has_build ]; then build; fi;
 if [ $has_config ]; then config; fi;
 
 if [ $has_deploy ]; then deploy; fi;
+
+echoinfo "source /etc/profile.d/redis-cluster-env.sh"
+. "/etc/profile.d/redis-cluster-env.sh"
+
+echo "REDIS_CLUSTER_HOME=$REDIS_CLUSTER_HOME"
 
 exit 0;

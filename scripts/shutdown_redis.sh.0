@@ -1,9 +1,0 @@
-#!/bin/bash
-# shutdown all redis-server on the node
-
-deploydir=$(cd "$(dirname "$0")" && pwd)
-
-redispass=$(cat "$deploydir/REDIS-AUTH-PASS")
-
-cd "$deploydir"
-

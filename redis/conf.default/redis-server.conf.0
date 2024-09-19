@@ -60,19 +60,18 @@ client-output-buffer-limit   slave 0 0 0
 client-output-buffer-limit   pubsub 0 0 0
 
 ######################### TLS/SSL ##############################
-{TLS_ENABLED}tls-port                     {TLS_PORT}
+{TLS_HASHTAG}tls-port                     {TLS_PORT}
 
-{TLS_ENABLED}tls-cert-file                {TLS_CERTFILE}
-{TLS_ENABLED}tls-key-file                 {TLS_KEYFILE}
-#{TLS_ENABLED}tls-key-file-pass            {TLS_KEYFILE_PASS}
+{TLS_HASHTAG}tls-cert-file                {TLS_CERTFILE}
+{TLS_HASHTAG}tls-key-file                 {TLS_KEYFILE}
 
 # Configure a DH parameters file to enable Diffie-Hellman (DH) key exchange,
 # required by older versions of OpenSSL (<3.0). Newer versions do not require
 # this configuration and recommend against it.
-{TLS_ENABLED}tls-dh-params-file           {TLS_CACERTDIR}/redis.dh
+{TLS_HASHTAG}tls-dh-params-file           {TLS_DHFILE}
 
-{TLS_ENABLED}tls-ca-cert-file             {TLS_CACERTDIR}/{TLS_CACERT}
-{TLS_ENABLED}tls-ca-cert-dir              {TLS_CACERTDIR}
+{TLS_HASHTAG}tls-ca-cert-file             {TLS_CACERTDIR}/{TLS_CACERT}
+{TLS_HASHTAG}tls-ca-cert-dir              {TLS_CACERTDIR}
 
 ################### SNAPSHOT DUMP MODE #########################
 # Snapshotting can be completely disabled with a single empty string argument
