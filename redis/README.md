@@ -146,8 +146,11 @@ redis 集群是指多个 redis-server 实例（服务进程）运行一台或多
 
 ### TODO
 
+- 服务器时钟同步 chrony 脚本
+
 - 服务器针对 redis 性能优化配置脚本
 
 - hiredis 和 hiredis ssl 开发示例
+
 
 2024-09-20, maparare.top
