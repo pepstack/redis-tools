@@ -11,12 +11,10 @@ source "/etc/profile.d/redis-cluster-env.sh"
 
 echo "[redis://{NODEHOST}@$REDIS_CLUSTER_ID] Client TLS/SSL connecting to: {NODEID}:{TLS_PORT} ..."
 
-#!/bin/bash
 "$REDIS_CLUSTER_HOME/bin/redis-cli" -c -h {NODEHOST} -p {TLS_PORT} \
     --tls \
     --cacert "$REDIS_CA_HOME/{TLS_CACERT}" \
     --cert "{TLS_CERTFILE}" \
-    --key "{TLS_KEYFILE}" \
-;
+    --key "{TLS_KEYFILE}"
 
 exit 0

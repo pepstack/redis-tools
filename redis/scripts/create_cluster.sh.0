@@ -3,10 +3,16 @@
 # 生成 redis 集群初始创建脚本. 不要使用 tls 端口做集群!
 # redis cluster uri: [redis://host:port@cluster/]
 #
+# Treat unset variables as an error
+set -o nounset
+
+# Treat any error as exit
+set -o errexit
+
 echo "[redis://$REDIS_CLUSTER_ID] Creating cluster ..."
 
-"$REDIS_CLUSTER_HOME/bin/redis-cli" \
-        --cluster-replica $REDIS_CLUSTER_REPLICAS \
-        --cluster create \
-$(cat "$REDIS_CLUSTER_HOME/CLUSTER_ALL_NODES" | awk '{ print "        "$0" \\" }')
-;
+nodes=$(cat $REDIS_CLUSTER_HOME/CLUSTER_ALL_NODES | awk 'NR>1 {print p}{p=$0" \\"}; END {print $0}')
+
+$REDIS_CLUSTER_HOME/bin/redis-cli --cluster-replicas $REDIS_CLUSTER_REPLICAS --cluster create $nodes
+
+echo "[redis://$REDIS_CLUSTER_ID] Cluster created success"

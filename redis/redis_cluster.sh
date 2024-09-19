@@ -53,7 +53,7 @@ set -o nounset
 set -o errexit
 
 # 默认的配置文件
-redis_config_file=$(readlink -f "cluster-config")
+redis_config_file=$(readlink -f "$_cdir_/cluster-config")
 
 # 动作命令
 has_config=""
@@ -338,14 +338,14 @@ function config() {
         cat "$scripts_dir/start_redis.sh.0" | \
                 sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
                 sed 's/'"{"NODEHOST"}"'/'"$host"'/g' | \
-                sed 's/'"{"PORTS"}"'/'"$ports"'/g' \
+                sed 's/'"{"PORTS"}"'/'"${portslist[*]}"'/g' \
             > "$nodeconfdir/start_redis.sh"
 
         # 节点关闭脚本: 保存并关闭节点全部服务实例
         cat "$scripts_dir/shutdown_redis.sh.0" | \
                 sed 's/'"{"NODEID"}"'/'"$nodeid"'/g' | \
                 sed 's/'"{"NODEHOST"}"'/'"$host"'/g' | \
-                sed 's/'"{"PORTS"}"'/'"$ports"'/g' \
+                sed 's/'"{"PORTS"}"'/'"${portslist[*]}"'/g' \
             > "$nodeconfdir/shutdown_redis.sh"
 
         # TCP 连接集群脚本
